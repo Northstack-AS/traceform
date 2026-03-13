@@ -1,17 +1,24 @@
-# Traceform
+# Traceform — AI Agent Observability
 
-**The black box for your AI agents.**
+The black box for your AI agents. Trace every LLM call, tool use, and decision in your agent pipeline.
 
-Traceform is an open-source observability platform for AI agents. It captures every LLM call, tool invocation, and retrieval operation your agent makes — giving you a complete, real-time trace of what happened, why it happened, and how much it cost. Think of it as Datadog for AI agents: a structured waterfall of spans, events, and metadata that makes debugging and optimizing multi-step agents tractable.
+## Live Demo
+
+[YOUR_VERCEL_URL]
+
+## Stack
+
+- **Next.js 15** (App Router, server components)
+- **Vercel Postgres** (traces, spans, events storage)
+- **TypeScript** · **Tailwind CSS**
+- **traceform-js** SDK (zero-dependency)
 
 ## Quick Start
 
-### 1. Install the SDK
+### 1. Run migrations
 
 ```bash
-npm install traceform-js
-# or
-pnpm add traceform-js
+curl -X POST https://YOUR_VERCEL_URL/api/migrate
 ```
 
 ### 2. Instrument your agent
@@ -20,90 +27,49 @@ pnpm add traceform-js
 import { Traceform } from "traceform-js";
 
 const tf = new Traceform({
-  apiKey: process.env.TRACEFORM_API_KEY!,
-  baseUrl: "https://your-traceform.vercel.app", // or http://localhost:3000
+  baseUrl: "https://YOUR_VERCEL_URL",
+  apiKey: "tf_demo_key_spike",
 });
 
-async function runAgent(userQuery: string) {
-  const trace = tf.trace("answer-question", {
-    input: { query: userQuery },
-    tags: ["production", "gpt-4o"],
-  });
-
-  const llmSpan = trace.span("openai-call", { type: "llm", input: { prompt: userQuery } });
-  const result = await callOpenAI(userQuery);
-  await llmSpan.end({
-    output: result,
-    model: "gpt-4o",
-    tokens: { prompt: 150, completion: 80 },
-    costUsd: 0.00023,
-  });
-
-  trace.log("info", "Agent completed", { resultLength: result.length });
-
-  await trace.end({ output: result, status: "success" });
-  return result;
-}
+const trace = await tf.trace("my-agent-run", async (t) => {
+  const span = await t.span("llm-call", { type: "llm" });
+  // ... your agent logic
+  await span.end({ status: "ok" });
+});
 ```
 
-### 3. View the dashboard
+### 3. View traces
 
-Navigate to `/dashboard` to see a real-time trace list. Click any trace to view the waterfall breakdown of spans, token usage, costs, and events.
+Open `https://YOUR_VERCEL_URL/dashboard`
 
-## Self-Hosted Setup
+## API
 
-1. **Clone the repo**
-   ```bash
-   git clone https://github.com/your-org/traceform
-   cd traceform
-   pnpm install
-   ```
+### POST /api/ingest
 
-2. **Set up Convex**
-   ```bash
-   npx convex dev
-   ```
-   Copy the `NEXT_PUBLIC_CONVEX_URL` from the output.
+Send traces, spans, and events.
 
-3. **Set up Clerk**
-   Create a Clerk application at clerk.com and copy your API keys.
+**Headers:** `x-api-key: tf_demo_key_spike`
 
-4. **Configure environment variables**
-   ```bash
-   cp .env.example .env.local
-   # Fill in:
-   # NEXT_PUBLIC_CONVEX_URL=...
-   # NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=...
-   # CLERK_SECRET_KEY=...
-   ```
+**Body:**
+```json
+{ "type": "trace", "payload": { "traceId": "...", "name": "...", ... } }
+{ "type": "span",  "payload": { "spanId": "...", "traceId": "...", ... } }
+{ "type": "event", "payload": { "eventId": "...", "traceId": "...", ... } }
+```
 
-5. **Create your first project**
-   Use the Convex dashboard to insert a project record with a hashed API key.
+### POST /api/migrate
 
-6. **Run locally**
-   ```bash
-   pnpm dev
-   ```
+Initialize database tables (idempotent, safe to re-run).
 
-7. **Deploy**
-   ```bash
-   npx convex deploy
-   vercel deploy
-   ```
+## Demo Project
 
-## Architecture
+The demo project API key is `tf_demo_key_spike`. This is seeded automatically on first migration.
 
-- **Ingest API** (`/api/ingest`): Authenticated HTTP endpoint. Accepts trace/span/event payloads, validates the API key against a SHA-256 hash stored in Convex, and writes to the database.
-- **Convex**: Real-time database. The dashboard subscribes to trace updates via Convex's live queries — no polling required.
-- **Clerk**: Auth for the dashboard UI.
-- **SDK** (`traceform-js`): Thin TypeScript client. Fire-and-forget ingestion with error suppression — your agent never blocks on observability.
+## Local Development
 
-## Roadmap
-
-- **Pricing model**: Free tier (10k spans/month), Pro ($29/mo for 1M spans), Enterprise
-- **Python SDK**: `pip install traceform` — same API surface, same fire-and-forget semantics
-- **ClickHouse migration**: Replace Convex with ClickHouse for analytical queries over billions of spans
-- **Self-hosted Helm chart**: One-command Kubernetes deploy for enterprise air-gapped environments
-- **Cost analytics**: Aggregate LLM spend by tag, model, project, time range
-- **Alerting**: Slack/PagerDuty alerts on error rate spikes or cost anomalies
-- **Session replay**: Reconstruct full agent conversations from raw traces
+```bash
+pnpm install
+# Set POSTGRES_URL in .env.local
+pnpm dev
+curl -X POST http://localhost:3000/api/migrate
+```

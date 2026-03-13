@@ -10,12 +10,11 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@clerk/clerk-react": "^5.61.3",
-    "@clerk/nextjs": "^7.0.4",
-    "convex": "^1.33.0",
+    "@vercel/postgres": "^0.10.0",
     "next": "16.1.6",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "ulid": "^2.3.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
